@@ -1,4 +1,5 @@
 require 'json'
+require './lib/nba_helper'
 
 if ARGV.empty?
   puts "Error: Needs a year"
@@ -11,46 +12,60 @@ print "Loading Schedule..."
 print "\b"*30
 
 begin
-  schedule = JSON.parse(`curl -s http://api.sportradar.us/nfl-ot1/games/#{year}/REG/schedule.json?api_key=5etueuh9u3a8auueywb7pesw`)
+  schedule = JSON.parse(`curl -s 	http://api.sportradar.us/nba-t3/games/#{year}/REG/schedule.json?api_key=uqpj2aeucyf5erk28py2xzqu`)
 rescue Exception => msg
   if msg.message.include? 'Developer Over Rate'
     puts "Error: Too many queries this month"
-    exit
+  else
+    puts msg.message
   end
+  exit
 end
 
-puts "Schedule loaded." + " "*20
 
 game_ids = []
 
-schedule["weeks"].each do |w|
-  w["games"].each do |g|
-    game_ids +=  [g["id"]]
-  end
+schedule["games"].each do |g|
+  game_ids +=  [g["id"]]
 end
 
+n = 1
 l = game_ids.length
 
 games = []
 
-l.times do |n|
-  print "Loading game #{n+1}/#{l} (#{(100*(n+1)/l).round}%)..."
+clear_line
+
+game_ids[0..800].each do |id|
+  print "Loading game #{n}/#{l} (#{(100.0*n/l).round}%)..."
+  n += 1
   begin
-    game = JSON.parse(`curl -s http://api.sportradar.us/nfl-ot1/games/#{game_ids[n]}/pbp.json?api_key=5etueuh9u3a8auueywb7pesw`)
+    game = JSON.parse(`curl -s http://api.sportradar.us/nba-t3/games/#{id}/pbp.json?api_key=uqpj2aeucyf5erk28py2xzqu`)
   rescue Exception => msg
     if msg.message.include? 'Developer Over Rate'
       puts "Error: Too many queries this month"
       exit
-    else
+    elsif msg.message.include? 'Developer Over Qps'
       sleep 1
-      game = JSON.parse(`curl -s http://api.sportradar.us/nfl-ot1/games/#{game_ids[n]}/pbp.json?api_key=5etueuh9u3a8auueywb7pesw`)
+      game = JSON.parse(`curl -s http://api.sportradar.us/nba-t3/games/#{id}/pbp.json?api_key=uqpj2aeucyf5erk28py2xzqu`)
+    else 
+      puts msg.message
+      game = nil
     end
   end
   print "\b"*30
   games += [game]
+  
+  clear_line
 end
 
-puts "Games loaded." + " "*20
+games = games.select { |g| !g.nil? }
+
+print "Saving games..."
 
 f = File.open("./data/radar#{year}.json", "w")
 f.write games.to_json
+
+clear_line
+
+print "Games saved."
