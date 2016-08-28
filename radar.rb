@@ -36,7 +36,10 @@ games = []
 
 clear_line
 
-game_ids[0..800].each do |id|
+game_ids = game_ids[0..150] # Testing purposes
+l = 150
+
+game_ids.each do |id|
   print "Loading game #{n}/#{l} (#{(100.0*n/l).round}%)..."
   n += 1
   begin

@@ -15,15 +15,16 @@ end
 
 # Classes
 class Subgame
-  def initialize(name="", points=0, yards=0, turns=0, final_score=nil)
+  def initialize(name="", points=0, yards=0, turns=0, final_score=nil, id=nil)
     @name   = name
     @points = points.to_i
     @yards  = yards.to_i
     @turns  = turns.to_i
     @final_score  = final_score.to_i
+    @id=id
   end
   
-  attr_accessor :name, :points, :yards, :turns, :final_score
+  attr_accessor :name, :points, :yards, :turns, :final_score, :id
   
   def stats
     return @points, @yards, @turns
@@ -41,6 +42,9 @@ class Subgame
     return list_of_games.sort_by { |g| self.distance_to g }[0]
   end
   
+  def same_as?(game)
+    return self.id == game.id
+  end
 end
 
 class Match
@@ -87,12 +91,17 @@ end
 def process(game, periods_testing)
   subgame_home = Subgame.new
   subgame_away = Subgame.new 
+    
+  subgame_home.id = game["id"]
+  subgame_away.id = game["id"]
   
-  home = game["summary"]["home"]["name"]
-  away = game["summary"]["away"]["name"]
-  
-  subgame_home.name = game["summary"]["home"]["market"] + " " + home
-  subgame_away.name = game["summary"]["away"]["market"] + " " + away
+  begin
+    subgame_home.name = game["home"]["market"] + " " + game["home"]["name"]
+    subgame_away.name = game["away"]["market"] + " " + game["away"]["name"]
+  rescue Exception => msg
+    puts msg
+    puts game
+  end
     
   game["periods"].length.times do |pe| # For each period
     period = game["periods"][pe]
@@ -105,27 +114,8 @@ def process(game, periods_testing)
     
     subgame_home.final_score += home_points
     subgame_away.final_score += away_points
-    
-    unless pe >= periods_testing # If it's a period we're looking at 
-      period["pbp"].select { |pl| pl["type"] == "drive" }.each do |play| # For each collection on plays on one continuous posession
-        play["events"].select { |e| ["rush", "pass"].include? e["play_type"] && !play["events"].nil? }.each do |event| # For each play
-          event["statistics"].select { |s| ["rush", "pass"].include? s["stat_type"] && !event["statistics"].nil? }.each do |s| # Look at stats
-            case s["team"]["name"]
-            when home
-              subgame_home.yards += s["yards"].to_i 
-            when away
-              subgame_away.yards += s["yards"].to_i
-            end
-          end
-        end
-      end
-    end
-    
   end
-  
-  subgame_home.turns = 0
-  subgame_away.turns = 0
-  
+    
   m = Match.new(subgame_home, subgame_away)
   
   m.true_winner = [subgame_home, subgame_away].sort_by { |s| s.final_score }[1]
@@ -137,9 +127,11 @@ end
 # Parse season
 def json_load(json_file, periods_testing)
   processed_games = []
+  
+  games = JSON.parse(File.read(json_file)).select { |g| g["status"] == "closed" }
 
-  JSON.parse(File.read(json_file)).each do |game|
-    processed_games << process(game, periods_testing)
+  games.each do |g|
+    processed_games << process(g, periods_testing)
   end
   
   return processed_games
@@ -147,16 +139,10 @@ end
 
 # Load files
 def load_reference(periods_testing)
-  print "Loading Reference File (1/2)..."
+  print "Loading Reference File"
   
   matches = json_load("./data/radar2014.json", periods_testing)
   subgames = matches.map { |m| m.subgames }.flatten
-  
-  clear_line
-  print "Loading Reference File (2/2)..."
-  
-  matches = json_load("./data/radar2013.json", periods_testing)
-  subgames += matches.map { |m| m.subgames }.flatten
   
   clear_line
   
