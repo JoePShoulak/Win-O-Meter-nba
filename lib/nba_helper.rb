@@ -15,23 +15,17 @@ end
 
 # Classes
 class Subgame
-  def initialize(name="", points=0, yards=0, turns=0, final_score=nil, id=nil)
+  def initialize(name="", points=0, final_score=nil, id=nil, win_percentage=nil)
     @name   = name
     @points = points.to_i
-    @yards  = yards.to_i
-    @turns  = turns.to_i
     @final_score  = final_score.to_i
     @id=id
   end
   
-  attr_accessor :name, :points, :yards, :turns, :final_score, :id
+  attr_accessor :name, :points, :final_score, :id, :win_percentage  
   
-  def stats
-    return @points, @yards, @turns
-  end
-  
-  def info
-    return [@name] + self.stats
+  def score
+    return [self.name, self.points]
   end
   
   def distance_to(game)
@@ -53,6 +47,10 @@ class Match
     @subgame2 = subgame2
     @true_winner = true_winner
     @true_tie = true_tie
+    
+    
+    self.subgame1.win_percentage = 100*(0.5 + self.spread/40.0)
+    self.subgame2.win_percentage = 100 - self.subgame1.win_percentage
   end
   
   attr_accessor :subgame1, :subgame2, :true_winner, :true_tie
@@ -77,8 +75,8 @@ class Match
     return self.subgame1.info + self.subgame2.info
   end
   
-  def tiebreaker!    
-    self.subgames.sort_by { |g| g.yards }[1].points += 1
+  def spread
+    return self.subgame1.points - self.subgame2.points
   end
 end
 
